@@ -109,6 +109,7 @@ class NatNetClient:
 
         # data
         self.mocap_data = None
+        self.mocap_data_flag = False
         self.data_descs = None
 
 
@@ -1391,6 +1392,7 @@ class NatNetClient:
             offset += offset_tmp
             
             self.mocap_data=mocap_data
+            self.mocap_data_flag=True
         elif message_id == self.NAT_MODELDEF :
             offset_tmp, data_descs = self.__unpack_data_descriptions( data[offset:], packet_size, major, minor)
             self.data_descs=data_descs
@@ -1507,7 +1509,7 @@ class NatNetClient:
 
         self.stop_threads = False
         # Create a separate thread for receiving data packets
-        self.data_thread = Thread( target = self.__data_mocap_thread_function, args = (self.data_socket, lambda : self.stop_threads))
+        self.data_thread = Thread( target = self.__data_mocap_thread_function, args = (self.data_socket, lambda : self.stop_threads ))
         self.data_thread.start()
 
         # Create a separate thread for receiving command packets

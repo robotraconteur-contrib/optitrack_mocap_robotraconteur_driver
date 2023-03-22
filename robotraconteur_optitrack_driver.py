@@ -1,11 +1,13 @@
 import RobotRaconteur as RR
 RRN = RR.RobotRaconteurNode.s
 import RobotRaconteurCompanion as RRC
+import general_robotics_toolbox as rox
 import argparse
 import sys
 import threading
 import numpy as np
 import time
+from RobotRaconteurCompanion.Util.SensorDataUtil import SensorDataUtil
 
 from natnet_lib.DataDescriptions import *
 from natnet_lib.MoCapData import *
@@ -26,14 +28,26 @@ class OptitrackDriver(object):
         self.streaming_client.set_server_address(optionsDict["serverAddress"])
         self.streaming_client.set_use_multicast(optionsDict["use_multicast"])
 
-        ## mocap data
+        ## mocap data and RR
         self._fiducials=RRN.GetStructureType('com.robotraconteur.fiducial.RecognizedFiducials')
+        self._fiducial=RRN.GetStructureType('com.robotraconteur.fiducial.RecognizedFiducial')
         self._fiducials_sensor_data=RRN.GetStructureType('com.robotraconteur.fiducial.FiducialSensorData')
+        self._namedposecovtype = RRN.GetStructureType('com.robotraconteur.geometry.NamedPoseWithCovariance')
+        self._namedposetype = RRN.GetStructureType('com.robotraconteur.geometry.NamedPose')
+        self._posetype = RRN.GetNamedArrayDType('com.robotraconteur.geometry.Pose')
+        self._sensordatatype = RRN.GetStructureType('com.robotraconteur.sensordata.SensorDataHeader')
+        self._tstype = RRN.GetPodDType('com.robotraconteur.datetime.TimeSpec2')
+        self._sensor_data_util = SensorDataUtil(RRN)
+        self.current_fiducials_sensor_data=None
+
+        ## streaming thread setup
+        self._lock = threading.RLock()
+        self._streaming = False
 
     def srv_start_driver(self):
         
         ## running streaming thread
-        is_running = self.streaming_client.run_mocap(self.mocap_data_return)
+        is_running = self.streaming_client.run_mocap()
         if not is_running:
             print("ERROR: Could not start streaming client.")
             try:
@@ -55,20 +69,98 @@ class OptitrackDriver(object):
                 print("exiting")
         
         self.print_configuration()
+
+        ## start streaming loop
+        with self._lock:
+            if (self._streaming):
+                raise Exception("Already Streaming")
+            # start data (robotraconteur pipe) streaming
+            self._streaming = True
+            self.data_t = threading.Thread(target=self.stream_loop)
+            self.data_t.start()
+
         print("\n")
         print("Optitrack RR Service Ready...")
     
     def stream_loop(self):
 
-        pass
+        st=time.time()
+        while self._streaming:
+            if(not self._streaming): 
+                break
+
+            if not self.streaming_client.mocap_data_flag:
+                time.sleep(0.0001)
+                continue
+            print("FPS:",time.time()-st)
+            # st=time.time()
+            self.send_sensor_data(self.streaming_client.mocap_data)
+            self.streaming_client.mocap_data_flag=False
+            st=time.time()
+
+    
+    def send_sensor_data(self,mocap_data):
+
+        # clear previous list
+        fiducials = self._fiducials()
+        fiducials.recognized_fiducials=[]
+
+        ## get rigid body
+        for i in range(len(mocap_data.rigid_body_data.rigid_body_list)):
+            rec_fiducials = self._fiducial()
+            rigid_body = mocap_data.rigid_body_data.rigid_body_list[i]
+            rec_fiducials.fiducial_marker = 'rigid'+str(int(rigid_body.id_num))
+            rec_fiducials.pose = self._namedposecovtype()
+            rec_fiducials.pose.pose = self._namedposetype()
+            rec_fiducials.pose.pose.pose = np.zeros((1,),dtype=self._posetype)
+            rec_fiducials.pose.pose.pose[0]['position']['x'] = rigid_body.pos[0]*1000 ## mm
+            rec_fiducials.pose.pose.pose[0]['position']['y'] = rigid_body.pos[1]*1000 ## mm
+            rec_fiducials.pose.pose.pose[0]['position']['z'] = rigid_body.pos[2]*1000 ## mm
+            quat = rox.R2q(rox.rpy2R(rigid_body.rot))
+            rec_fiducials.pose.pose.pose[0]['orientation']['w'] = quat[0]
+            rec_fiducials.pose.pose.pose[0]['orientation']['x'] = quat[1]
+            rec_fiducials.pose.pose.pose[0]['orientation']['y'] = quat[2]
+            rec_fiducials.pose.pose.pose[0]['orientation']['z'] = quat[3]
+            fiducials.recognized_fiducials.append(rec_fiducials)
+        
+        ## get markers
+        for i in range(len(mocap_data.labeled_marker_data.labeled_marker_list)):
+            rec_fiducials = self._fiducial()
+            lbmarker = mocap_data.labeled_marker_data.labeled_marker_list[i]
+            marker_id,model_id = lbmarker.get_marker_id()
+            rec_fiducials.fiducial_marker = 'marker'+str(int(marker_id))+'_rigid'+str(int(model_id))
+            rec_fiducials.pose = self._namedposecovtype()
+            rec_fiducials.pose.pose = self._namedposetype()
+            rec_fiducials.pose.pose.pose = np.zeros((1,),dtype=self._posetype)
+            rec_fiducials.pose.pose.pose[0]['position']['x'] = lbmarker.pos[0]*1000 ## mm
+            rec_fiducials.pose.pose.pose[0]['position']['y'] = lbmarker.pos[1]*1000 ## mm
+            rec_fiducials.pose.pose.pose[0]['position']['z'] = lbmarker.pos[2]*1000 ## mm
+            fiducials.recognized_fiducials.append(rec_fiducials)
+
+        fiducials_sensor_data = self._fiducials_sensor_data()
+        fiducials_sensor_data.sensor_data = self._sensordatatype()
+        fiducials_sensor_data.sensor_data.seqno = int(mocap_data.prefix_data.frame_number)
+        nanosec = mocap_data.suffix_data.stamp_data_received*100
+        fiducials_sensor_data.sensor_data.ts = np.zeros((1,),dtype=self._tstype)
+        fiducials_sensor_data.sensor_data.ts[0]['nanoseconds'] = int(nanosec%1e9)
+        fiducials_sensor_data.sensor_data.ts[0]['seconds'] = int(nanosec/1e9)
+        fiducials_sensor_data.fiducials = fiducials
+
+        self.fiducials_sensor_data.AsyncSendPacket(fiducials_sensor_data, lambda: None)
+        self.current_fiducials_sensor_data = fiducials_sensor_data
 
     def srv_stop_streaming(self):
 
+        self._streaming = False
+        self.data_t.join()
         self.streaming_client.shutdown()
     
     def capture_fiducials(self):
 
-        pass
+        if self.current_fiducials_sensor_data is not None:
+            return self.current_fiducials_sensor_data.fiducials
+        else:
+            return self._fiducials()
     
     def print_configuration(self):
 
@@ -113,9 +205,9 @@ def main():
 
     optitrack_obj = OptitrackDriver(args.server_ip,args.client_ip,args.use_multicast)
 
-    with RR.ServerNodeSetup("com.robotraconteur.fiducial.robdef",59823,argv=rr_args):
+    with RR.ServerNodeSetup("com.robotraconteur.fiducial.FiducialSensor",59823,argv=rr_args):
         
-        service_ctx = RRN.RegisterService("optitrack_mocap","com.robotraconteur.fiducial.robdef",optitrack_obj)
+        service_ctx = RRN.RegisterService("optitrack_mocap","com.robotraconteur.fiducial.FiducialSensor",optitrack_obj)
         optitrack_obj.srv_start_driver()
 
         if args.wait_signal:  
@@ -133,3 +225,5 @@ def main():
 
         optitrack_obj.srv_stop_streaming()
 
+if __name__ == "__main__":
+    main()

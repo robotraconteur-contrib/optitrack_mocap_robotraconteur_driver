@@ -47,7 +47,7 @@ class OptitrackDriver(object):
     def srv_start_driver(self):
         
         ## running streaming thread
-        is_running = self.streaming_client.run_mocap()
+        is_running = self.streaming_client.run_mocap(self.stream_loop)
         if not is_running:
             print("ERROR: Could not start streaming client.")
             try:
@@ -70,33 +70,36 @@ class OptitrackDriver(object):
         
         self.print_configuration()
 
-        ## start streaming loop
-        with self._lock:
-            if (self._streaming):
-                raise Exception("Already Streaming")
-            # start data (robotraconteur pipe) streaming
-            self._streaming = True
-            self.data_t = threading.Thread(target=self.stream_loop)
-            self.data_t.start()
+        # ## start streaming loop
+        # with self._lock:
+        #     if (self._streaming):
+        #         raise Exception("Already Streaming")
+        #     # start data (robotraconteur pipe) streaming
+        #     self._streaming = True
+        #     self.data_t = threading.Thread(target=self.stream_loop)
+        #     self.data_t.start()
 
         print("\n")
         print("Optitrack RR Service Ready...")
     
-    def stream_loop(self):
+    def stream_loop(self,mocap_data):
 
-        st=time.time()
-        while self._streaming:
-            if(not self._streaming): 
-                break
+        self.send_sensor_data(mocap_data)
+        self.streaming_client.mocap_data_flag=False
 
-            if not self.streaming_client.mocap_data_flag:
-                time.sleep(0.0001)
-                continue
-            print("FPS:",time.time()-st)
-            # st=time.time()
-            self.send_sensor_data(self.streaming_client.mocap_data)
-            self.streaming_client.mocap_data_flag=False
-            st=time.time()
+        # st=time.time()
+        # d=0
+        # while self._streaming:
+        #     if(not self._streaming): 
+        #         break
+        #     print("something")
+        #     if not self.streaming_client.mocap_data_flag:
+        #         continue
+        #     print("FPS:",time.time()-st)
+        #     # st=time.time()
+        #     self.send_sensor_data(self.streaming_client.mocap_data)
+        #     self.streaming_client.mocap_data_flag=False
+        #     st=time.time()
 
     
     def send_sensor_data(self,mocap_data):
@@ -151,8 +154,8 @@ class OptitrackDriver(object):
 
     def srv_stop_streaming(self):
 
-        self._streaming = False
-        self.data_t.join()
+        # self._streaming = False
+        # self.data_t.join()
         self.streaming_client.shutdown()
     
     def capture_fiducials(self):

@@ -10,14 +10,16 @@ def main():
     sensor_data_srv = mocap_cli.fiducials_sensor_data.Connect(-1)
 
     packet_num=0
+    packet_num_total=1000
     st = time.time()
     while True:
         data = sensor_data_srv.ReceivePacketWait()
         packet_num+=1
-        if packet_num>=100:
+        if packet_num>=packet_num_total:
             break
+        print("Frame No.:",data.sensor_data.seqno)
     et = time.time()
-    print("Ave FPS:",100/(et-st))
+    print("Ave FPS:",packet_num_total/(et-st))
 
 if __name__=='__main__':
     main()

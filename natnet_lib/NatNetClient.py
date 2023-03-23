@@ -1334,7 +1334,7 @@ class NatNetClient:
         trace( "End Packet\n-----------------" )
         return message_id
     
-    def __data_mocap_thread_function( self, in_socket, stop):
+    def __data_mocap_thread_function( self, in_socket, stop,data_return_func):
         ## Eric added, 20230321
         ## this thread only cared about mocap data (e.g. marker position, rigid body pose) and store mocap description
 
@@ -1371,6 +1371,7 @@ class NatNetClient:
                 
                 if message_id == self.NAT_FRAMEOFDATA:
                     self.__process_mocap_message( data)
+                    data_return_func(self.mocap_data)
                 else:
                     pass
 
@@ -1493,7 +1494,7 @@ class NatNetClient:
         #self.send_request(self.command_socket, self.NAT_REQUEST_MODELDEF, "",  (self.server_ip_address, self.command_port) )
         return True
     
-    def run_mocap( self ):
+    def run_mocap( self ,data_return_func):
         # Create the data socket
         self.data_socket = self.__create_data_socket( self.data_port )
         if self.data_socket is None :
@@ -1509,7 +1510,7 @@ class NatNetClient:
 
         self.stop_threads = False
         # Create a separate thread for receiving data packets
-        self.data_thread = Thread( target = self.__data_mocap_thread_function, args = (self.data_socket, lambda : self.stop_threads ))
+        self.data_thread = Thread( target = self.__data_mocap_thread_function, args = (self.data_socket, lambda : self.stop_threads,data_return_func ))
         self.data_thread.start()
 
         # Create a separate thread for receiving command packets

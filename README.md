@@ -43,7 +43,7 @@ python robotraconteur_optitrack_driver.py --servier-ip natnet_server_ip_addr
 Start the driver using different NatNet (i.e. Motiv) Client IP:
 
 ```
-python robotraconteur_optitrack_driver.py --client-ip natnet_server_ip_addr
+python robotraconteur_optitrack_driver.py --client-ip natnet_client_ip_addr
 ```
 
 Start the driver using Unicast:

@@ -18,6 +18,7 @@ def main():
         if packet_num>=packet_num_total:
             break
         print("Frame No.:",data.sensor_data.seqno)
+        print("Total markers:",len(data.fiducials.recognized_fiducials))
     et = time.time()
     print("Ave FPS:",packet_num_total/(et-st))
 

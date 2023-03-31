@@ -47,7 +47,7 @@ class OptitrackDriver(object):
     def srv_start_driver(self):
         
         ## running streaming thread
-        is_running = self.streaming_client.run_mocap(self.stream_loop)
+        is_running = self.streaming_client.run_mocap(self.send_sensor_data)
         if not is_running:
             print("ERROR: Could not start streaming client.")
             try:
@@ -70,37 +70,8 @@ class OptitrackDriver(object):
         
         self.print_configuration()
 
-        # ## start streaming loop
-        # with self._lock:
-        #     if (self._streaming):
-        #         raise Exception("Already Streaming")
-        #     # start data (robotraconteur pipe) streaming
-        #     self._streaming = True
-        #     self.data_t = threading.Thread(target=self.stream_loop)
-        #     self.data_t.start()
-
         print("\n")
         print("Optitrack RR Service Ready...")
-    
-    def stream_loop(self,mocap_data):
-
-        self.send_sensor_data(mocap_data)
-        self.streaming_client.mocap_data_flag=False
-
-        # st=time.time()
-        # d=0
-        # while self._streaming:
-        #     if(not self._streaming): 
-        #         break
-        #     print("something")
-        #     if not self.streaming_client.mocap_data_flag:
-        #         continue
-        #     print("FPS:",time.time()-st)
-        #     # st=time.time()
-        #     self.send_sensor_data(self.streaming_client.mocap_data)
-        #     self.streaming_client.mocap_data_flag=False
-        #     st=time.time()
-
     
     def send_sensor_data(self,mocap_data):
 

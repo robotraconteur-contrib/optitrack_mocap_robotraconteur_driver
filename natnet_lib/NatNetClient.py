@@ -109,7 +109,6 @@ class NatNetClient:
 
         # data
         self.mocap_data = None
-        self.mocap_data_flag = False
         self.data_descs = None
 
 
@@ -1393,7 +1392,6 @@ class NatNetClient:
             offset += offset_tmp
             
             self.mocap_data=mocap_data
-            self.mocap_data_flag=True
         elif message_id == self.NAT_MODELDEF :
             offset_tmp, data_descs = self.__unpack_data_descriptions( data[offset:], packet_size, major, minor)
             self.data_descs=data_descs

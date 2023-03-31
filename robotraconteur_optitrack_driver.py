@@ -127,10 +127,11 @@ class OptitrackDriver(object):
             fiducials.recognized_fiducials.append(rec_fiducials)
         
         ## get markers
+        # print(len(mocap_data.labeled_marker_data.labeled_marker_list))
         for i in range(len(mocap_data.labeled_marker_data.labeled_marker_list)):
             rec_fiducials = self._fiducial()
             lbmarker = mocap_data.labeled_marker_data.labeled_marker_list[i]
-            marker_id,model_id = lbmarker.get_marker_id()
+            model_id,marker_id = lbmarker.get_marker_id()
             rec_fiducials.fiducial_marker = 'marker'+str(int(marker_id))+'_rigid'+str(int(model_id))
             rec_fiducials.pose = self._namedposecovtype()
             rec_fiducials.pose.pose = self._namedposetype()

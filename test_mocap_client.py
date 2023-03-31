@@ -17,8 +17,13 @@ def main():
         packet_num+=1
         if packet_num>=packet_num_total:
             break
-        print("Frame No.:",data.sensor_data.seqno)
-        print("Total markers:",len(data.fiducials.recognized_fiducials))
+    print("Frame No.:",data.sensor_data.seqno)
+    print("Total markers:",len(data.fiducials.recognized_fiducials))
+    for i in range(len(data.fiducials.recognized_fiducials)):
+        print("ID:",data.fiducials.recognized_fiducials[i].fiducial_marker)
+        print("position:",data.fiducials.recognized_fiducials[i].pose.pose.pose[0]['position'])
+        print("orientation:",data.fiducials.recognized_fiducials[i].pose.pose.pose[0]['orientation'])
+        print("===========================================")
     et = time.time()
     print("Ave FPS:",packet_num_total/(et-st))
 

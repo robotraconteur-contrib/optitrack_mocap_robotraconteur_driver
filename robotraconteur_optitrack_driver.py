@@ -90,7 +90,7 @@ class OptitrackDriver(object):
             rec_fiducials.pose.pose.pose[0]['position']['x'] = rigid_body.pos[0]*1000 ## mm
             rec_fiducials.pose.pose.pose[0]['position']['y'] = rigid_body.pos[1]*1000 ## mm
             rec_fiducials.pose.pose.pose[0]['position']['z'] = rigid_body.pos[2]*1000 ## mm
-            quat = rox.R2q(rox.rpy2R(rigid_body.rot))
+            quat = [rigid_body.rot[3],rigid_body.rot[0],rigid_body.rot[1],rigid_body.rot[2]]
             rec_fiducials.pose.pose.pose[0]['orientation']['w'] = quat[0]
             rec_fiducials.pose.pose.pose[0]['orientation']['x'] = quat[1]
             rec_fiducials.pose.pose.pose[0]['orientation']['y'] = quat[2]
